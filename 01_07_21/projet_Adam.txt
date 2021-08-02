@@ -1,0 +1,362 @@
+from tkinter import *
+import pandas
+import numpy
+import sys
+import matplotlib.pyplot as plt
+import tkinter.ttk as ttk
+from PIL import Image, ImageTk
+import PySimpleGUI as sg
+import PySimpleGUIQt as qt
+
+from matplotlib.ticker import NullFormatter  # useful for `logit` scale
+
+
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+
+import matplotlib
+matplotlib.use('TkAgg')
+#creer un fenetre
+window = Tk()
+
+#frame for text
+
+
+#personaliser la fenetre
+window.title("Les Arbres de Paris")
+window.geometry("1080x720")
+window.minsize(480,360)
+#window.iconbitmap("D:\Formation_Greta_Python\DB_Arbres_Paris\Landscapers1.ico")
+#window.config(background='#bec358')
+#image = Image.open('D:\Formation_Greta_Python\DB_Arbres_Paris\arbre.png')
+#image = image.resize((250, 300))
+#photo = ImageTk.PhotoImage(image)
+#canvas = Label(window,padx=15,pady = 25, image = photo) #bg=couleurBack)
+#canvas.image=photo
+#canvas.grid(row=5,column=15,sticky=W)
+
+
+txt = Text(window)
+txt.grid(row=5,column=4,columnspan=1,sticky=E)
+
+
+
+class PrintToTXT(object):
+ def write(self, s):
+     txt.insert(END, s)
+
+def ImportCsv():
+
+    global df
+
+    txt.delete("1.0","end")  # Vider les champs de saisi
+
+    df= pandas.read_csv("D:\Formation_Greta_Python\DB_Arbres_Paris\les-arbres.csv",sep= ";",header =0) # importer le fichier csv
+
+
+    df = df.drop(['COMPLEMENT ADRESSE', 'NUMERO','TYPE EMPLACEMENT','STADE DE DEVELOPPEMENT'], axis=1) # supprimer des colonnes
+
+    df=df.rename(columns={ 'LIBELLE FRANCAIS':'LIBELLE_FRANCAIS','LIEU / ADRESSE':'ADRESSE','VARIETE OUCULTIVAR':'VARIETE_OUCULTIVAR',
+           'CIRCONFERENCE (cm)':'CIRCONFERENCE_CM', 'HAUTEUR (m)':'HAUTEUR_M'}) # renommer les entetes
+    print(df)
+    df = df.dropna(how='any',axis=0) # supprimer les cases vides
+    print(df.columns)
+
+    print(df.shape) # afficher la dimension du tableau
+
+    df = df.drop(df[df.HAUTEUR_M > 40].index) # supprimer les lignes avec une hauter d'arbre supérieure à 40 mètre
+    df.loc[(df.HAUTEUR_M == 0),'HAUTEUR_M']=1
+
+    df = df.reset_index(drop=True)
+    df.to_csv('myfile.csv', sep = ' ', mode = 'a')
+
+    txt.insert(END, "******************** Data importées & nettoyées ********************")
+
+def TotalParHauteur():
+    global df
+    global g1
+    g1 = df.groupby('HAUTEUR_M').size().reset_index(name='TOTAL_PAR_HAUTEUR')
+    df['HAUTEUR_M'].value_counts()
+
+    txt.delete("1.0","end")  # Vider les champs de saisie
+
+
+    sys.stdout = PrintToTXT()
+    print(g1)
+
+
+def TotalParArrondisement():
+    global df
+    g2= df.groupby('ARRONDISSEMENT').size().reset_index(name=" NOMBRE TOTAL D'ARBRE")
+    df['ARRONDISSEMENT'].value_counts()
+
+
+    txt.delete("1.0","end")  # Vider les champs de saisie
+
+
+    sys.stdout = PrintToTXT()
+    print(g2)
+
+def hauteur_min_max_arr_par_arrondissement():
+    global df
+    global gr_arrondissement
+
+    txt.delete("1.0","end")  # Vider les champs de saisie
+
+    gr_arrondissement = df.groupby('ARRONDISSEMENT').agg({'HAUTEUR_M': [ 'min', 'max']})
+    sys.stdout = PrintToTXT()
+    print(gr_arrondissement)
+
+
+def hauteur_min_max_arr_par_dominialite():
+    global df
+    global gr_arrondissement
+    txt.delete("1.0","end")  # Vider les champs de saisi
+    gr_dominialite = df.groupby('DOMANIALITE').agg({'HAUTEUR_M': [ 'min', 'max']})
+
+    sys.stdout = PrintToTXT()
+    print( gr_dominialite)
+
+def diagramme():
+    global df
+
+    df.groupby('ARRONDISSEMENT')['HAUTEUR_M'].max().plot()
+    plt.show()
+
+
+
+
+def draw_plot():
+    global df
+    global fig
+
+
+
+    fig = matplotlib.figure.Figure(figsize=(5, 4), dpi=100)
+
+    fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, sharey=True)
+    df.groupby('ARRONDISSEMENT')['HAUTEUR_M'].max().plot(kind='bar', color = 'green', fontsize = 8)
+    plt.suptitle("Hauteur d'arbre maximale", x=0.5, y=1.05, ha='center', fontsize='xx-large')
+
+    fig.text(0.04, 0.5, 'Hauteur max (m)', va='center', rotation='vertical')
+
+    plt.show()
+
+##
+##class FigureWidget:
+##    def __init__(self, parent, fig):
+##        self.FigureRoot = parent
+##        self.canvas = FigureCanvasTkAgg(fig, master=self.FigureRoot)
+##        self.canvas = self.canvas.get_tk_widget()
+##        self.canvas.pack(fill=BOTH,expand=YES)
+##
+##    def UpdatePlot(self, fig):
+##
+##        self.canvas = FigureCanvasTkAgg(fig, master=self.FigureRoot)
+##        self.canvas.draw()
+##        self.canvas = self.canvas.get_tk_widget()
+##
+##    def destroy(self):
+##        self.FigureRoot.destroy()
+
+
+
+
+
+
+def draw_figure(canvas, figure):
+    global figure_canvas_agg
+    global g1
+
+
+    figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
+    figure_canvas_agg.draw()
+    figure_canvas_agg.get_tk_widget().pack(side='right', fill='both', expand=1)
+    return figure_canvas_agg
+
+
+def delete_fig_agg(fig_agg):
+    fig_agg.get_tk_widget().forget()
+    plt.close('all')
+
+
+
+
+#header
+btn1=Button(window, text='Import_CSV       ', fg="white", bg="#fc8403", font=("Comic Sans Ms",10),width=20,command=ImportCsv)
+btn1.grid(row=1,column=3,columnspan=1,sticky=W)
+btn2=Menubutton(window, text='Etude analytique',height=1, fg="white", bg="#fc8403", font=("Comic Sans Ms",10),width=20)#,command=commande)
+btn2.grid(row=2,column=3,columnspan=1,sticky=W)
+# Création d'un menu défilant
+menuDeroulant = Menu(btn2)
+menuDeroulant.add_command(label='Total arbres par Hauteur',command = TotalParHauteur)
+menuDeroulant.add_command(label='Total arbres par Arrondisement',command = TotalParArrondisement)
+menuDeroulant.add_command(label='Huateur min/max par arrondissement',command = hauteur_min_max_arr_par_arrondissement)
+menuDeroulant.add_command(label='Huateur min/max par dominialite',command = hauteur_min_max_arr_par_dominialite)
+
+# Attribution du menu déroulant au menu Affichage
+btn2.configure(menu=menuDeroulant)
+btn3=Menubutton(window, text='Etude graphique ', fg="white", bg="#fc8403", font=("Comic Sans Ms",10),width=20)#,command=commande)
+btn3.grid(row=3,column=3,columnspan=1,sticky=W)
+
+menuDeroulant1 = Menu(btn3)
+menuDeroulant1.add_command(label='Histogramme hauteur',command = diagramme)
+btn3.configure(menu=menuDeroulant1)
+
+sg.theme("DarkGreen")  #Topanga
+
+
+
+
+def nouvelle_fenetre ():
+
+    global hauteur_slider
+
+    global df
+    global fig
+
+    global affichage
+    global a
+    global slider
+    global fig_canvas_agg
+    global g1
+    global fig_agg
+
+
+    affichage = sg.Text()
+
+
+    liste_arrondissement=[]
+
+    for i in df.index:
+
+        if df['ARRONDISSEMENT'][i] not in liste_arrondissement:
+            liste_arrondissement.append(df['ARRONDISSEMENT'][i])
+
+
+    liste_espece=[]
+
+    for i in df.index:
+
+        if df['ESPECE'][i] not in  liste_espece:
+
+             liste_espece.append(df['ESPECE'][i])
+
+
+    sg.SetOptions(element_padding=(1,0), text_color='white')
+    menu_def = ['&File', ['&graph1', '&graph2', '&graph3']]
+
+
+    col1 = sg.Column([[sg.Frame('Bienvenue', [[sg.Text('ANALYSE STATISTIQUE PARAMETRABLE',justification='center', size=(40, 1), font=("Helvetica", 25), text_color='blue',relief=sg.RELIEF_RIDGE)]], size=(450,45), pad=(0,0))]], pad=(0,0))
+
+    col2 = sg.Column([
+
+    [sg.Frame('Paramètres:', [[sg.Text("HAUTEUR D'ARBRE (m)",justification='left', size=(20, 3)),sg.Slider(range=(1, 40), orientation='h',background_color='yellow', size=(15, 15),key='-slider-', default_value=20)],
+ [sg.Text("ARRONDISSEMENT ",justification='left', size=(20, 3)),sg.InputCombo(values=liste_arrondissement ,key='combo', size=(18,15))],[sg.Text("ESPECE", size=(20, 3)),sg.InputCombo(values=liste_espece,key='combo_esp' , size=(18,15))]],)]], pad=(0,0))
+
+    col3 = sg.Column([[sg.Frame('Analyse', [[sg.Column([ [sg.Text("*** Nombre d'arbres d'une hauteur donnée  dans un arrondissement choisi ***",justification='center', size=(70, 1),font=("Helvetica", 12), text_color='black')],
+[sg.InputText(size=(100,1),font=("Helvetica", 15),justification='center', text_color='red', key='-OUTPUT-')],[sg.Text("*** Nombre d'arbres d'une espèce donnée  dans un arrondissement choisi ***",justification='center', size=(70, 1),font=("Helvetica", 12), text_color='black')],[sg.InputText(size=(100,1),font=("Helvetica", 15),justification='center', text_color='green', key='-OUTPUT2-')],
+
+
+[sg.Text("*** Total d'arbre d'une hauteur donnée dans la région parisienne ***",justification='center', size=(70, 1),font=("Helvetica", 12), text_color='black')],[sg.InputText(size=(100,1),font=("Helvetica", 15),justification='center', text_color='blue', key='-OUTPUT3-')],[  sg.Button('Analyser', button_color=('white', 'green'),size=(10, None))],
+
+[sg.ButtonMenu('Graph', menu_def, key='_MENU_',size=(11, None))],[ sg.Button('Quitter',button_color=('white', 'red'),size=(10, None))],[sg.Canvas(key='-CANVAS-',size=(100, 50))]], size=(1000,800), pad=(0,0))]])]], justification='center', pad=(0,0))
+
+    layout = [ [col1],[col2, col3]]
+
+
+    window = sg.Window('Base de données des arbres parisiens', layout)
+
+
+    fig_agg = None
+    while True: #  pour éviter que l'application plante
+
+     event, values = window.read()
+
+     if event == sg.WINDOW_CLOSED or event == 'Quitter':
+        break
+     if event == 'Analyser':
+
+
+        combo=values['combo'] # récupérer l'arrondissement sélectionné de la liste déroulonate
+        combo_espece=values['combo_esp'] # récupérer l'espèce sélectionnée de la liste déroulonate
+
+        slider=int(values['-slider-'])
+        df1 = df[(df['ARRONDISSEMENT']==combo) & (df['HAUTEUR_M']==slider)] # filtrer selon l'arrondissement sélectionné de la liste déroulonate et la hauteur séléctionnée
+        df2 = df[(df['ARRONDISSEMENT']==combo) & (df['ESPECE']==combo_espece)] # filtrer selon l'arrondissement sélectionné de la liste déroulonate et l'espèce séléctionnée
+        df3 = df[(df['HAUTEUR_M']==slider)]
+        if df1.empty==False or df2.empty==False or df3.empty==False: # si le tableau filtré df1/df2 ne sont pas vides
+
+            window['-OUTPUT-'].update("Le nombre d'arbres d'une hauteur de " + str(slider)+" mètres"+" à " +combo +" : "+ str(len(df1.HAUTEUR_M))+"  arbres") # insérer le résultat dans la zone texte OUTPUT
+            window['-OUTPUT2-'].update("Le nombre d'arbres d'une espèce «" + str(combo_espece)+"» à " +combo +" : "+ str(len(df2.ESPECE))+"  arbres")
+            window['-OUTPUT3-'].update("Le nombre d'arbres d'une hauteur de " + str(slider)+" mètres"+" dans la région parisienne : "+ str(len(df3.HAUTEUR_M))+"  arbres")
+
+        else :
+
+
+            window['-OUTPUT-'].update("Le nombre d'arbres d'une hauteur de " + str(slider)+" mètres"+" à " + combo + " : 0 arbres")
+            window['-OUTPUT2-'].update("Le nombre d'arbres d'une espèce «" + str(combo_espece)+"»  à " +combo +" : 0  arbres")
+            window['-OUTPUT3-'].update("Le nombre d'arbres d'une hauteur de " + str(slider)+" mètres dans la région parisienne : 0 arbres")
+
+
+##
+     elif  event =='_MENU_':
+
+        if values['_MENU_'] == 'graph1':
+            if fig_agg is not None:
+                delete_fig_agg(fig_agg)
+
+
+
+
+
+
+
+            fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, sharey=True)
+            df.groupby('ARRONDISSEMENT')['HAUTEUR_M'].max().plot(kind='bar', color = 'green', fontsize = 3)
+            plt.suptitle("Hauteur d'arbre maximale", x=0.5, y=1.05, ha='center', fontsize='xx-large')
+
+            fig.text(0.04, 0.5, 'Hauteur max (m)', va='center', rotation='vertical')
+
+
+            fig_agg=draw_figure(window['-CANVAS-'].TKCanvas, fig)
+
+
+
+
+
+
+        elif values['_MENU_'] == 'graph2' :
+
+            if fig_agg is not None:
+
+                delete_fig_agg(fig_agg)
+
+
+##            if figure_canvas_agg.get_tk_widget() != None :
+##                figure_canvas_agg.get_tk_widget().destroy()
+
+            figure_canvas_agg.get_tk_widget().destroy()
+            fig = matplotlib.figure.Figure(figsize=(2, 2), dpi=50)
+            fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, sharey=True)
+            df.groupby('ARRONDISSEMENT')['HAUTEUR_M'].min().plot(kind='bar', color = 'red', fontsize = 3)
+            plt.suptitle("Hauteur d'arbre maximale", x=0.5, y=1.05, ha='center', fontsize='xx-large')
+            fig.text(0.04, 0.5, 'Hauteur min (m)', va='center', rotation='vertical')
+            fig_agg=draw_figure(window['-CANVAS-'].TKCanvas, fig)
+
+
+
+
+
+
+
+    window.close()
+
+
+
+btn4=Button(window, text='Analyse paramétrable', fg="white", bg="#fc8403", font=("Comic Sans Ms",10),width=20, command =nouvelle_fenetre)#,command=commande)
+btn4.grid(row=4,column=3,columnspan=1,sticky=W)
+
+
+window.mainloop()
+
